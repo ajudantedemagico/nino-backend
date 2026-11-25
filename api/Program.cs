@@ -46,6 +46,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// Cabeçalhos de segurança em todas as respostas
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers["X-Frame-Options"] = "DENY";
+    ctx.Response.Headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'";
+    ctx.Response.Headers["Referrer-Policy"] = "no-referrer";
+    ctx.Response.Headers["Cache-Control"] = "no-store";   // respostas com dados sensíveis não ficam em cache
+    await next();
+});
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -98,7 +109,8 @@ app.MapPost("/auth/register", async (RegisterReq r, NpgsqlDataSource ds, ILogger
     {
         return Results.Json(new { erro = "E-mail já cadastrado." }, statusCode: 409);
     }
-    log.LogInformation("AUDIT cadastro perfil={Perfil}", r.Perfil);
+    var perfilLog = r.Perfil == "Terapeuta" ? "Terapeuta" : "Responsavel";   // valor fixo: nunca grava texto digitado pelo usuário
+    log.LogInformation("AUDIT cadastro perfil={Perfil}", perfilLog);
     return Results.Created("/me", new { mensagem = "Cadastro realizado." });
 });
 
